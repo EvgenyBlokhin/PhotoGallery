@@ -47,6 +47,7 @@ public class FlickrFetchr {
             connection.disconnect();
         }
     }
+
     public String getUrlString(String urlSpec) throws IOException {
         return new String(getUrlBytes(urlSpec));
     }
@@ -61,7 +62,7 @@ public class FlickrFetchr {
                     .appendQueryParameter("method", "flickr.photos.getRecent")
                     .appendQueryParameter("api_key", API_KEY)
                     .appendQueryParameter("format", "json")
-                    .appendQueryParameter("page",  String.valueOf(page))
+                    .appendQueryParameter("page", String.valueOf(page))
                     .appendQueryParameter("nojsoncallback", "1")
                     .appendQueryParameter("extras", "url_s")
                     .build().toString();
@@ -78,7 +79,7 @@ public class FlickrFetchr {
     }
 
     private void parseItems(List<GalleryItem> items, JSONObject jsonBody) throws IOException, JSONException {
-        GsonBuilder builder= new GsonBuilder();
+        GsonBuilder builder = new GsonBuilder();
         Gson gson = builder.create();
 
         JSONObject photosJsonObject = jsonBody.getJSONObject("photos");

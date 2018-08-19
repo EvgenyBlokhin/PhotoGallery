@@ -1,5 +1,6 @@
 package ru.uj.photogallery;
 
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -12,7 +13,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.widget.TextView;
+import android.widget.ImageView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +61,7 @@ public class PhotoGalleryFragment extends Fragment {
             public void onGlobalLayout() {
                 RecyclerView.LayoutManager lm = mPhotoRecyclerView.getLayoutManager();
                 int totalSpace;
-                if (lm.getPaddingBottom() == LinearLayoutManager.VERTICAL) {
+                if (((LinearLayoutManager) lm).getOrientation() == LinearLayoutManager.VERTICAL) {
                     totalSpace = lm.getWidth() - lm.getPaddingRight() - lm.getPaddingLeft();
                 } else {
                     totalSpace = lm.getHeight() - lm.getPaddingTop() - lm.getPaddingBottom();
@@ -131,8 +132,7 @@ public class PhotoGalleryFragment extends Fragment {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 if (mLoading) {
-                    if (dy > 0)
-                    {
+                    if (dy > 0) {
                         int visibleItemCount = mPhotoRecyclerView.getLayoutManager().getChildCount();
                         int totalItemCount = mPhotoRecyclerView.getLayoutManager().getItemCount();
                         int pastVisiblesItems = ((LinearLayoutManager) mPhotoRecyclerView.getLayoutManager()).findFirstVisibleItemPosition();
@@ -150,16 +150,16 @@ public class PhotoGalleryFragment extends Fragment {
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
-        private TextView mTitleTextView;
+        private ImageView mItemImageView;
 
         public PhotoHolder(View itemView) {
             super(itemView);
 
-            mTitleTextView = (TextView) itemView;
+            mItemImageView = itemView.findViewById(R.id.item_image_view);
         }
 
-        public void bindGalleryItem(GalleryItem item) {
-            mTitleTextView.setText(item.toString());
+        public void bindDrawable(Drawable drawable) {
+            mItemImageView.setImageDrawable(drawable);
         }
     }
 
@@ -179,14 +179,16 @@ public class PhotoGalleryFragment extends Fragment {
         @NonNull
         @Override
         public PhotoHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int viewType) {
-            TextView textView = new TextView(getActivity());
-            return new PhotoHolder(textView);
+           LayoutInflater inflater = LayoutInflater.from(getActivity());
+           View view = inflater.inflate(R.layout.gallery_item, viewGroup,false);
+            return new PhotoHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull PhotoHolder photoHolder, int position) {
             GalleryItem galleryItem = mGalleryItems.get(position);
-            photoHolder.bindGalleryItem(galleryItem);
+            Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
+            photoHolder.bindDrawable(placeholder);
         }
 
         @Override
@@ -195,11 +197,11 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
-    private class FetchItemsTask extends AsyncTask<Void,Void,List<GalleryItem>> {
+    private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
 
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
-           return new FlickrFetchr().fetchItems(mPageCount);
+            return new FlickrFetchr().fetchItems(mPageCount);
         }
 
         @Override
