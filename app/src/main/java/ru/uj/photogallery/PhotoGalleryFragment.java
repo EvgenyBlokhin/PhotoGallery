@@ -12,8 +12,12 @@ import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
@@ -46,7 +50,9 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemsTask().execute();
+        setHasOptionsMenu(true);
+//        new FetchItemsTask().execute();
+        updateItems();
 
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -68,9 +74,7 @@ public class PhotoGalleryFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
 
-//        GridAutofitLayoutManager layoutManager = new GridAutofitLayoutManager(getActivity(), 220);
         mPhotoRecyclerView = v.findViewById(R.id.photo_recycler_view);
-//        mPhotoRecyclerView.setLayoutManager(layoutManager);
         mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), mSpanCount));
         setupAdapter();
         setupScrollListener();
@@ -87,60 +91,78 @@ public class PhotoGalleryFragment extends Fragment {
                 }
                 int spanCount = Math.max(1, totalSpace / 220);
                 ((GridLayoutManager) mPhotoRecyclerView.getLayoutManager()).setSpanCount(spanCount);
-//                mPhotoRecyclerView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-//                mPhotoRecyclerWidth = mPhotoRecyclerView.getWidth();
-//                mPhotoRecyclerView.getLayoutManager().getColumnCountForAccessibility(mPhotoRecyclerView,);
-//                ((GridLayoutManager) mPhotoRecyclerView.getLayoutManager()).setSpanCount(mSpanCount);
             }
         });
         return v;
     }
 
-//    public static class GridAutofitLayoutManager extends GridLayoutManager {
-//        private int mColumnWidth;
-//        private boolean mColumnWidthChanged = true;
-//        public GridAutofitLayoutManager(Context context, int columnWidth) {
-//            super(context, 1);
-//            setColumnWidth(checkedColumnWidth(context, columnWidth));
-//        }
-//        public GridAutofitLayoutManager(Context context, int columnWidth, int orientation, boolean reverseLayout) { /* Initially set spanCount to 1, will be changed automatically later. */
-//            super(context, 1, orientation, reverseLayout);
-//            setColumnWidth(checkedColumnWidth(context, columnWidth));
-//        }
-//        private int checkedColumnWidth(Context context, int columnWidth) {
-//            if (columnWidth <= 0) { /* Set default columnWidth value (48dp here). It is better to move this constant to static constant on top, but we need context to convert it to dp, so can't really do so. */
-//                columnWidth = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 220, context.getResources().getDisplayMetrics());
-//            }
-//            return columnWidth;
-//        }
-//        public void setColumnWidth(int newColumnWidth) {
-//            if (newColumnWidth > 0 && newColumnWidth != mColumnWidth) {
-//                mColumnWidth = newColumnWidth;
-//                mColumnWidthChanged = true;
-//            }
-//        }
-//        @Override public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
-//            if (mColumnWidthChanged && mColumnWidth > 0) {
-//                int totalSpace;
-//                if (getOrientation() == VERTICAL) {
-//                    totalSpace = getWidth() - getPaddingRight() - getPaddingLeft();
-//                } else {
-//                    totalSpace = getHeight() - getPaddingTop() - getPaddingBottom();
-//                }
-//                int spanCount = Math.max(1, totalSpace / mColumnWidth);
-//                setSpanCount(spanCount);
-//                mColumnWidthChanged = false;
-//            }
-//            super.onLayoutChildren(recycler, state);
-//        }
-//    }
-
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        mThumbnailDownloader.clearQueue();
+    }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         mThumbnailDownloader.quit();
-        mThumbnailDownloader.clearQueue();
+    }
+
+    @Override
+    public void onCreateOptionsMenu(final Menu menu, MenuInflater menuInflater) {
+        super.onCreateOptionsMenu(menu, menuInflater);
+        menuInflater.inflate(R.menu.fragment_photo_gallery, menu);
+
+        final MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchView = (SearchView) searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String s) {
+                Log.d(TAG, "QueryTextSubmit: " + s);
+                QueryPreferences.setStoredQuery(getActivity(), s);
+                searchView.onActionViewCollapsed();
+                updateItems();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String s) {
+                Log.d(TAG, "QueryTextSubmit" + s);
+                return false;
+            }
+        });
+
+        searchView.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String query = QueryPreferences.getStoredQuery(getActivity());
+                searchView.setQuery(query,false);
+            }
+        });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getActivity(),null);
+                updateItems();
+                return true;
+                default:
+                    return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void updateItems() {
+        mPageCount = 1;
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemsTask(query).execute();
+    }
+
+    private void updateItems(String string) {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemsTask(query).execute();
     }
 
     private void setupAdapter() {
@@ -167,7 +189,7 @@ public class PhotoGalleryFragment extends Fragment {
                         if ((visibleItemCount + pastVisiblesItems) >= totalItemCount) {
                             mLoading = false;
                             mPageCount++;
-                            new FetchItemsTask().execute();
+                            updateItems("don`t update page");
                         }
 
                     }
@@ -199,7 +221,11 @@ public class PhotoGalleryFragment extends Fragment {
         }
 
         public void appendItems(List<GalleryItem> items) {
-            mGalleryItems.addAll(items);
+            if (mPageCount == 1) {
+                mGalleryItems = items;
+            } else {
+                mGalleryItems.addAll(items);
+            }
             notifyDataSetChanged();
         }
 
@@ -214,10 +240,17 @@ public class PhotoGalleryFragment extends Fragment {
         @Override
         public void onBindViewHolder(@NonNull PhotoHolder photoHolder, int position) {
             GalleryItem galleryItem = mGalleryItems.get(position);
-
-            Drawable placeholder = getResources().getDrawable(R.drawable.white_image);
+            Drawable placeholder = getResources().getDrawable(R.drawable.spinner_ring);
             photoHolder.bindDrawable(placeholder);
             mThumbnailDownloader.queueThumbnail(photoHolder, galleryItem.getUrl());
+            int pos = position + 15;
+            if (mGalleryItems.size() > pos) {
+                mThumbnailDownloader.preventFetch(mGalleryItems.get(pos).getUrl());
+            }
+            if (position >= 15) {
+                mThumbnailDownloader.preventFetch(mGalleryItems.get(position - 15).getUrl());
+            }
+
         }
 
         @Override
@@ -226,11 +259,21 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
+
     private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+        private String mQuery;
+        public FetchItemsTask(String query) {
+            mQuery = query;
+        }
 
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
-            return new FlickrFetchr().fetchItems(mPageCount);
+
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos(mPageCount);
+            } else {
+                return new FlickrFetchr().searchPhotos(mQuery, mPageCount);
+            }
         }
 
         @Override

@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.support.v4.util.LruCache;
 import android.util.Log;
 
 import java.io.IOException;
@@ -17,10 +18,12 @@ import java.util.concurrent.ConcurrentMap;
 public class ThumbnailDownloader<T> extends HandlerThread {
     private static final String TAG = "ThumbnailDownloader";
     private static final int MASSAGE_DOWNLOAD = 0;
+    private static final int PREVENT_DOWNLOAD = 1;
 
     private boolean mHasQuit = false;
     private Handler mRequestHandler;
     private ConcurrentMap<T, String> mRequestMap = new ConcurrentHashMap<>();
+    private LruCache mLruCache = new LruCache(100);
     private Handler mResponseHandler;
     private ThumbnailDownloadListener<T> mThumbnailDownloadListener;
 
@@ -44,8 +47,11 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             public void handleMessage(Message msg) {
                 if (msg.what == MASSAGE_DOWNLOAD) {
                     T target = (T) msg.obj;
-                    Log.i(TAG, "GOT a request for URL: " + mRequestMap.get(target));
+                    //Log.i(TAG, "GOT a request for URL: " + mRequestMap.get(target));
                     handleRequest(target);
+                }
+                else if (msg.what == PREVENT_DOWNLOAD) {
+                    loadPrevent((String) msg.obj);
                 }
             }
         };
@@ -58,10 +64,9 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     }
 
     public void queueThumbnail(T target, String url) {
-        Log.i(TAG, "Got a URL" + url);
-
         if (url == null) {
             mRequestMap.remove(target);
+            Log.i("HUI", "QueueThumbnail - URL of image IS NULL");
         } else {
             mRequestMap.put(target, url);
             mRequestHandler.obtainMessage(MASSAGE_DOWNLOAD, target).sendToTarget();
@@ -78,11 +83,21 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             final String url = mRequestMap.get(target);
 
             if (url == null) {
+                Log.i("HUI", "URL of image IS NULL");
                 return;
             }
 
-            byte[] bitmapBytes = new FlickrFetchr().getUrlBytes(url);
-            final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+            synchronized (mLruCache) {
+                if (mLruCache.get(url) == null) {
+                    byte[] bitmapBytes = new FlickrFetchr().getUrlBytes(url);
+                    final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+                    mLruCache.put(url, bitmap);
+                    Log.i("HUI", "!!!ЗАГРУЗКА ИЗ СЕТИ: " + url);
+                }
+                else {
+                    Log.i("HUI", "Загрузка из кэша: " + url);
+                }
+            }
             Log.i(TAG, "Bitmap created");
 
             mResponseHandler.post(new Runnable() {
@@ -93,7 +108,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                     }
 
                     mRequestMap.remove(target);
-                    mThumbnailDownloadListener.onThumbnailDownloaded(target, bitmap);
+                    mThumbnailDownloadListener.onThumbnailDownloaded(target,(Bitmap) mLruCache.get(url));
 
                 }
             });
@@ -101,5 +116,22 @@ public class ThumbnailDownloader<T> extends HandlerThread {
         } catch (IOException ioe) {
             Log.i(TAG, "Error downloading image", ioe);
         }
+    }
+
+    private void loadPrevent(String url) {
+        if (mLruCache.get(url) == null) {
+            byte[] bitmapBytes = new byte[0];
+            try {
+                bitmapBytes = new FlickrFetchr().getUrlBytes(url);
+            } catch (IOException e) {
+                Log.e("HUI", e.toString());
+            }
+            final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+            mLruCache.put(url, bitmap);
+        }
+    }
+
+    public void preventFetch(final String url) {
+        mRequestHandler.obtainMessage(PREVENT_DOWNLOAD, url).sendToTarget();
     }
 }
