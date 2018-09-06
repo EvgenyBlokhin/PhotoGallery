@@ -47,7 +47,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             public void handleMessage(Message msg) {
                 if (msg.what == MASSAGE_DOWNLOAD) {
                     T target = (T) msg.obj;
-                    //Log.i(TAG, "GOT a request for URL: " + mRequestMap.get(target));
                     handleRequest(target);
                 }
                 else if (msg.what == PREVENT_DOWNLOAD) {

@@ -40,6 +40,7 @@ public class PhotoGalleryFragment extends Fragment {
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader mThumbnailDownloader;
     private PhotoAdapter mPhotoAdapter = new PhotoAdapter(mItems);
+    private int mPastVisibleItems;
 
 
     public static PhotoGalleryFragment newInstance() {
@@ -51,7 +52,6 @@ public class PhotoGalleryFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         setHasOptionsMenu(true);
-//        new FetchItemsTask().execute();
         updateItems();
 
         Handler responseHandler = new Handler();
@@ -140,6 +140,13 @@ public class PhotoGalleryFragment extends Fragment {
                 searchView.setQuery(query,false);
             }
         });
+
+        MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
+        if (PollService.isServiceAlarmOn(getActivity())) {
+            toggleItem.setTitle(R.string.stop_polling);
+        } else {
+            toggleItem.setTitle(R.string.start_polling);
+        }
     }
 
     @Override
@@ -148,6 +155,11 @@ public class PhotoGalleryFragment extends Fragment {
             case R.id.menu_item_clear:
                 QueryPreferences.setStoredQuery(getActivity(),null);
                 updateItems();
+                return true;
+            case R.id.menu_item_toggle_polling:
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
+                PollService.setServiceAlarm(getActivity(), shouldStartAlarm);
+                getActivity().invalidateOptionsMenu();
                 return true;
                 default:
                     return super.onOptionsItemSelected(item);
@@ -184,9 +196,9 @@ public class PhotoGalleryFragment extends Fragment {
                     if (dy > 0) {
                         int visibleItemCount = mPhotoRecyclerView.getLayoutManager().getChildCount();
                         int totalItemCount = mPhotoRecyclerView.getLayoutManager().getItemCount();
-                        int pastVisiblesItems = ((LinearLayoutManager) mPhotoRecyclerView.getLayoutManager()).findFirstVisibleItemPosition();
+                        mPastVisibleItems = ((LinearLayoutManager) mPhotoRecyclerView.getLayoutManager()).findFirstVisibleItemPosition();
 
-                        if ((visibleItemCount + pastVisiblesItems) >= totalItemCount) {
+                        if ((visibleItemCount + mPastVisibleItems) >= totalItemCount) {
                             mLoading = false;
                             mPageCount++;
                             updateItems("don`t update page");
@@ -243,12 +255,13 @@ public class PhotoGalleryFragment extends Fragment {
             Drawable placeholder = getResources().getDrawable(R.drawable.spinner_ring);
             photoHolder.bindDrawable(placeholder);
             mThumbnailDownloader.queueThumbnail(photoHolder, galleryItem.getUrl());
-            int pos = position + 15;
-            if (mGalleryItems.size() > pos) {
-                mThumbnailDownloader.preventFetch(mGalleryItems.get(pos).getUrl());
+            int posPlus = position + 10;
+            int posMinus = position - 10;
+            if (mGalleryItems.size() > posPlus) {
+                mThumbnailDownloader.preventFetch(mGalleryItems.get(posPlus).getUrl());
             }
-            if (position >= 15) {
-                mThumbnailDownloader.preventFetch(mGalleryItems.get(position - 15).getUrl());
+            if (position < mPastVisibleItems && posMinus >= 0) {
+                mThumbnailDownloader.preventFetch(mGalleryItems.get(posMinus).getUrl());
             }
 
         }
