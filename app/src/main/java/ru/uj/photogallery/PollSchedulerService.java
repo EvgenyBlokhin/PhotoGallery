@@ -1,5 +1,6 @@
 package ru.uj.photogallery;
 
+import android.app.Activity;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.job.JobInfo;
@@ -14,7 +15,6 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 
 import java.lang.ref.WeakReference;
@@ -28,10 +28,10 @@ public class PollSchedulerService extends JobService {
 
     private static final String TAG = "PollSchedulerService";
     private PollTask mCurrentTask;
-
-    public static Intent newIntent(Context context) {
-        return new Intent(context, PollSchedulerService.class);
-    }
+    public static final String ACTION_SHOW_NOTIFICATION = "ru.uj.android.photogallery.SHOW_NOTIFICATION";
+    public static final String PERM_PRIVATE = "ru.uj.android.photogallery.PRIVATE";
+    public static final String REQUEST_CODE = "REQUEST_CODE";
+    public static final String NOTIFICATION = "NOTIFICATION";
 
     public static void setServiceScheduler(Context context, boolean isOn) {
         final int JOB_ID = 1;
@@ -41,13 +41,15 @@ public class PollSchedulerService extends JobService {
         if (isOn) {
             JobInfo jobInfo = new JobInfo.Builder(JOB_ID, new ComponentName(context, PollSchedulerService.class))
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)
-                    .setPeriodic(1000 * 60 * 15)
+                    .setPeriodic(1000 * 60 * 1)
                     .setPersisted(true)
                     .build();
             scheduler.schedule(jobInfo);
         } else {
             scheduler.cancel(JOB_ID);
         }
+
+        QueryPreferences.setAlarmOn(context, isOn);
     }
 
     public static boolean isServiceSchedulerOn(Context context) {
@@ -84,9 +86,6 @@ public class PollSchedulerService extends JobService {
         protected Void doInBackground(JobParameters... params) {
             JobParameters jobParams = params[0];
 
-//            if (!isNetworkAvailableAndConnected()) {
-//                return;
-//            }
             String query = QueryPreferences.getStoredQuery(ctx.get());
             String lastResultId = QueryPreferences.getLastResultId(ctx.get());
             List<GalleryItem> items;
@@ -118,14 +117,20 @@ public class PollSchedulerService extends JobService {
                         .setAutoCancel(true)
                         .build();
 
-                NotificationManagerCompat notificationManager =
-                        NotificationManagerCompat.from(ctx.get());
-                notificationManager.notify(0, notification);
+                showBackgroundNotification(0, notification);
 
                 jobFinished(jobParams, false);
             }
+
             QueryPreferences.setLastResultId(ctx.get(), resultId);
             return null;
+        }
+
+        private void showBackgroundNotification(int requestCode, Notification notification) {
+            Intent i = new Intent(ACTION_SHOW_NOTIFICATION);
+            i.putExtra(REQUEST_CODE, requestCode);
+            i.putExtra(NOTIFICATION, notification);
+            sendOrderedBroadcast(i, PERM_PRIVATE, null, null, Activity.RESULT_OK, null, null);
         }
     }
 
@@ -136,13 +141,4 @@ public class PollSchedulerService extends JobService {
         }
         return false;
     }
-
-//    private boolean isNetworkAvailableAndConnected() {
-//        ConnectivityManager cm =
-//                (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-//        boolean isNetworkAvailable = cm.getActiveNetworkInfo() != null;
-//        boolean isNetworkConnected = isNetworkAvailable && cm.getActiveNetworkInfo().isConnected();
-//
-//        return isNetworkConnected;
-//    }
 }
