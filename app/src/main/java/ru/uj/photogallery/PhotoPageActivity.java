@@ -23,7 +23,10 @@ public class PhotoPageActivity extends SingleFragmentActivity {
 
     @Override
     public void onBackPressed() {
-        
-        super.onBackPressed();
+        PhotoPageFragment photoPageFragment = (PhotoPageFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.fragment_container);
+        if (!photoPageFragment.onGoBack()) {
+            super.onBackPressed();
+        }
     }
 }

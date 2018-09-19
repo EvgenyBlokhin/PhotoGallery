@@ -1,6 +1,5 @@
 package ru.uj.photogallery;
 
-import android.app.Activity;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -63,10 +62,16 @@ public class PhotoPageFragment extends VisibleFragment {
                 activity.getSupportActionBar().setSubtitle(title);
             }
         });
-        Activity activity = getActivity();
-        activity.onBackPressed();
         mWebView.setWebViewClient(new WebViewClient());
         mWebView.loadUrl(mUri.toString());
         return v;
+    }
+        public boolean onGoBack() {
+        if (mWebView.canGoBack()) {
+            mWebView.goBack();
+            return true;
+        } else {
+            return false;
+        }
     }
 }
