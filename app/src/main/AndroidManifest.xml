@@ -28,7 +28,8 @@
 
         <activity
             android:name=".PhotoPageActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize" />
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:parentActivityName=".PhotoGalleryActivity"/>
 
         <service android:name=".PollService" />
         <service

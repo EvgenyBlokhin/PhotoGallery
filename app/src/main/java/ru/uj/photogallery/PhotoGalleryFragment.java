@@ -245,8 +245,13 @@ public class PhotoGalleryFragment extends VisibleFragment {
 
         @Override
         public void onClick(View view) {
-//            Intent i = new Intent(Intent.ACTION_VIEW, mGalleryItem.getPhotoPageUri());
-            Intent i = PhotoPageActivity.newIntent(getActivity(), mGalleryItem.getPhotoPageUri());
+            String uriString =  mGalleryItem.getPhotoPageUri().toString();
+            Intent i;
+            if (uriString.startsWith("http") || uriString.startsWith("https")) {
+                i = PhotoPageActivity.newIntent(getActivity(), mGalleryItem.getPhotoPageUri());
+            } else {
+                i = new Intent(Intent.ACTION_VIEW, mGalleryItem.getPhotoPageUri());
+            }
             startActivity(i);
         }
     }
