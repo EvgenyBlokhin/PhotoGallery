@@ -65,7 +65,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     public void queueThumbnail(T target, String url) {
         if (url == null) {
             mRequestMap.remove(target);
-            Log.i("HUI", "QueueThumbnail - URL of image IS NULL");
         } else {
             mRequestMap.put(target, url);
             mRequestHandler.obtainMessage(MASSAGE_DOWNLOAD, target).sendToTarget();
@@ -82,7 +81,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             final String url = mRequestMap.get(target);
 
             if (url == null) {
-                Log.i("HUI", "URL of image IS NULL");
                 return;
             }
 
@@ -91,10 +89,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                     byte[] bitmapBytes = new FlickrFetchr().getUrlBytes(url);
                     final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
                     mLruCache.put(url, bitmap);
-                    Log.i("HUI", "!!!ЗАГРУЗКА ИЗ СЕТИ: " + url);
-                }
-                else {
-                    Log.i("HUI", "Загрузка из кэша: " + url);
                 }
             }
             Log.i(TAG, "Bitmap created");
@@ -123,7 +117,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             try {
                 bitmapBytes = new FlickrFetchr().getUrlBytes(url);
             } catch (IOException e) {
-                Log.e("HUI", e.toString());
             }
             final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
             mLruCache.put(url, bitmap);
